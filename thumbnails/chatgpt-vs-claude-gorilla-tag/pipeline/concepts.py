@@ -1,7 +1,7 @@
 """Render paired concept panels (crude ChatGPT left / real Claude right) from named presets.
 python3 concepts.py NAME [NAME...] [--hi]
 """
-import json, subprocess, sys, os
+import json, math, subprocess, sys, os
 from concurrent.futures import ThreadPoolExecutor
 
 B = os.environ.get("BLENDER", "/opt/blender/blender-4.5.14-linux-x64/blender")
@@ -118,6 +118,22 @@ PRESETS["treehouse2"]["R"].update(
     lights={"key": 170, "key_pos": [-1.1, -2.0, 1.2], "key_size": 2.5, "key_col": "#FFE2C6",
             "fill": 35, "fill_pos": [0.3, -1.6, -0.4], "fill_size": 2.0, "fill_col": "#FFC7A0",
             "rim": 450, "rim_col": "#FFB868", "rim2": 1000, "rim2_col": "#FFB050", "sun": 0})
+
+
+# v6 (main): ONE camera for both renders, so the background is a single continuous scene split at the divider.
+# Monkes stand at the 1/4 and 3/4 marks turned to face the lens; one treehouse straddles the divider.
+# ChatGPT's monke is a from-scratch low-poly gorilla (gorilla.py): decent, but clearly not Claude's.
+_UCAM = {"loc": [0, -1.9, 0.70], "target": [0, 0, 0.70], "lens": 50, "fstop": 8, "shift_x": 0.0}
+_ULAY = {"inner": -1, "th_x": 0.15, "th_y": 5.6, "deck_z": 0.32, "th_rot": 0, "trunk_x": 3.2}
+_UX = 0.342                                        # frame 1/4 at the monke plane for a 50 mm lens at 1.9 m
+_UTURN = round(math.degrees(math.atan(_UX / 1.9)), 1)
+PRESETS["unified"] = _copy.deepcopy(PRESETS["treehouse2"])
+PRESETS["unified"]["L"].update(
+    model="gorilla", scale=0.70, offset=[-_UX, 0, 0.70 - 0.57 * 0.70], turn=_UTURN, floor_z=-0.2,
+    gorilla={"raise_side": -1, "brow_w": 0, "head_r": 0.21, "head_z": 0.57, "neck_z": 0.40, "eye_r": 0.040},
+    tree_xy=[(-5.6, 9.0, 1.0), (-3.0, 15.0, 1.0), (-7.5, 14.0, 1.0), (-1.2, 19.0, 1.0), (-4.2, 22.0, 1.0)],
+    tree_shape=(1.0, 7.0, 1.5), leaf_col="#7DBE3C", float_tree=-1, layout=_ULAY, cam=_UCAM)
+PRESETS["unified"]["R"].update(root=[_UX, 0, 0.22], turn=_UTURN, layout=_ULAY, cam=_UCAM)
 
 
 def job(name, side):

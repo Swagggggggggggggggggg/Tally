@@ -89,64 +89,70 @@ def box(size, loc, rot, mat):
     return add(o, mat)
 
 
-# ---- body: a Unity-style capsule, a bit too stiff and too narrow at the shoulders
-BR = cfg.get('body_r', 0.27)
-BH = cfg.get('body_h', 0.18)          # straight section of the capsule (real GT torsos are short)
-cyl(BR, BH, (0, 0, 0.15 - BH / 2), (0, 0, 0), M_BODY, verts=12)
-sphere(BR, (0, 0, 0.15), M_BODY, seg=12, rings=8)
-sphere(BR, (0, 0, 0.15 - BH), M_BODY, seg=12, rings=8)
-for o in monke[-3:]:
-    o.scale = (1.0, 0.78, 1.0)
-# ---- head: low-poly sphere sunk into the body, slightly off-centre
-H = cfg.get('head', {})
-hx, hz, hr = H.get('x', 0.015), H.get('z', 0.49), H.get('r', 0.155)
-sphere(hr, (hx, -0.02, hz), M_BODY, seg=10, rings=7)
-# face: a flat grey disc stuck on the front, crooked
-fd = cyl(hr * 0.74, 0.03, (hx - 0.008, -0.02 - hr - 0.012, hz - 0.015), (math.radians(90), math.radians(cfg.get('face_tilt', 9)), 0), M_FACE, verts=14)
-# eyes: mismatched sizes and heights (the 'AI made it' tell)
-E = cfg.get('eyes', {})
-fy = -0.02 - hr - 0.012 - 0.018
-for ex, ez, er, pr, pdx, pdz in ((-0.045, 0.025, 0.034, 0.016, -0.012, 0.010), (0.050, 0.008, 0.026, 0.013, 0.010, -0.004)):
-    sphere(er, (hx + ex, fy, hz + ez), M_WHITE, seg=10, rings=6, scale=(1, 0.45, 1))
-    sphere(pr, (hx + ex + pdx, fy - 0.010, hz + ez + pdz), M_EYE, seg=8, rings=6, scale=(1, 0.5, 1))
-# mouth: a thin black bar, tilted
-box((0.070, 0.010, 0.010), (hx + 0.006, fy + 0.004, hz - 0.068), (0, math.radians(-8), 0), M_EYE)
-# ears: different sizes
-sphere(0.045, (hx - hr - 0.005, -0.01, hz + 0.01), M_FACE, seg=8, rings=6, scale=(0.5, 1, 1))
-sphere(0.034, (hx + hr + 0.002, -0.01, hz + 0.03), M_FACE, seg=8, rings=6, scale=(0.5, 1, 1))
-# chest patch: a flat box slapped on the front
-box((0.23, 0.02, 0.24), (0.0, -0.215, 0.07), (0, math.radians(2), 0), M_FACE)
-# name tag in Blender's default font (no pixel font: another tell)
-bpy.ops.object.text_add(location=(-0.097, -0.228, 0.13), rotation=(math.radians(90), math.radians(-3), 0))
-t = bpy.context.object
-t.data.body = cfg.get('name', 'CHATGPT')
-t.data.size = 0.050
-t.data.extrude = 0.002
-t.data.materials.append(M_EYE)
-monke.append(t)
-# arms: stiff straight cylinders in an A-pose, ball hands
-A = cfg.get('arm_deg', 28)
-for sx in (-1, 1):
-    sh = Vector((sx * 0.25, 0, cfg.get('shoulder_z', 0.27)))
-    arm_mat = M_MISSING if (cfg.get('missing_arm') and sx == -1) else M_BODY
-    ang = math.radians(cfg.get('arm_deg_side', {}).get(str(sx), A))
-    L = cfg.get('arm_len_side', {}).get(str(sx), 0.80)
-    d = Vector((sx * math.sin(ang), -0.06, -math.cos(ang))).normalized()
-    mid = sh + d * (L / 2)
-    rot = d.to_track_quat('Z', 'Y').to_euler()
-    cyl(0.062, L, tuple(mid), tuple(rot), arm_mat, verts=8)
-    if str(sx) in cfg.get('peace_side', []):
-        # the AI's attempt at a peace sign: a box palm and two mismatched stick fingers in a V
-        P = cfg.get('peace', {})
-        end = sh + d * L
-        box(tuple(P.get('palm', (0.12, 0.05, 0.09))), tuple(end + d * 0.035), (0, math.radians(P.get('palm_tilt', -6)), 0), arm_mat)
-        for sgn_f, flen in ((-1, P.get('len_a', 0.17)), (1, P.get('len_b', 0.13))):
-            fd = (Matrix.Rotation(math.radians(sgn_f * P.get('spread', 22)), 3, 'Y') @ d).normalized()
-            base = end + d * 0.075 + Vector((sgn_f * 0.032, -0.012, 0))
-            cyl(P.get('finger_r', 0.028), flen, tuple(base + fd * flen / 2), tuple(fd.to_track_quat('Z', 'Y').to_euler()), arm_mat, verts=6)
-    else:
-        sphere(0.085, tuple(sh + d * L), arm_mat, seg=8, rings=6)
-    sphere(0.072, tuple(sh), M_BODY, seg=8, rings=6)
+if cfg.get('model') == 'gorilla':
+    # 'decent but not Claude': a from-scratch low-poly gorilla in brand colour
+    import gorilla
+    GM = dict(fur=M_BODY, plate=M_FACE, white=flat('g_white', '#F4F4F4', rough=0.25), black=flat('g_black', '#0B0B0B', rough=0.3))
+    monke.extend(gorilla.build(cfg.get('gorilla', {}), GM))
+else:
+    # ---- body: a Unity-style capsule, a bit too stiff and too narrow at the shoulders
+    BR = cfg.get('body_r', 0.27)
+    BH = cfg.get('body_h', 0.18)          # straight section of the capsule (real GT torsos are short)
+    cyl(BR, BH, (0, 0, 0.15 - BH / 2), (0, 0, 0), M_BODY, verts=12)
+    sphere(BR, (0, 0, 0.15), M_BODY, seg=12, rings=8)
+    sphere(BR, (0, 0, 0.15 - BH), M_BODY, seg=12, rings=8)
+    for o in monke[-3:]:
+        o.scale = (1.0, 0.78, 1.0)
+    # ---- head: low-poly sphere sunk into the body, slightly off-centre
+    H = cfg.get('head', {})
+    hx, hz, hr = H.get('x', 0.015), H.get('z', 0.49), H.get('r', 0.155)
+    sphere(hr, (hx, -0.02, hz), M_BODY, seg=10, rings=7)
+    # face: a flat grey disc stuck on the front, crooked
+    fd = cyl(hr * 0.74, 0.03, (hx - 0.008, -0.02 - hr - 0.012, hz - 0.015), (math.radians(90), math.radians(cfg.get('face_tilt', 9)), 0), M_FACE, verts=14)
+    # eyes: mismatched sizes and heights (the 'AI made it' tell)
+    E = cfg.get('eyes', {})
+    fy = -0.02 - hr - 0.012 - 0.018
+    for ex, ez, er, pr, pdx, pdz in ((-0.045, 0.025, 0.034, 0.016, -0.012, 0.010), (0.050, 0.008, 0.026, 0.013, 0.010, -0.004)):
+        sphere(er, (hx + ex, fy, hz + ez), M_WHITE, seg=10, rings=6, scale=(1, 0.45, 1))
+        sphere(pr, (hx + ex + pdx, fy - 0.010, hz + ez + pdz), M_EYE, seg=8, rings=6, scale=(1, 0.5, 1))
+    # mouth: a thin black bar, tilted
+    box((0.070, 0.010, 0.010), (hx + 0.006, fy + 0.004, hz - 0.068), (0, math.radians(-8), 0), M_EYE)
+    # ears: different sizes
+    sphere(0.045, (hx - hr - 0.005, -0.01, hz + 0.01), M_FACE, seg=8, rings=6, scale=(0.5, 1, 1))
+    sphere(0.034, (hx + hr + 0.002, -0.01, hz + 0.03), M_FACE, seg=8, rings=6, scale=(0.5, 1, 1))
+    # chest patch: a flat box slapped on the front
+    box((0.23, 0.02, 0.24), (0.0, -0.215, 0.07), (0, math.radians(2), 0), M_FACE)
+    # name tag in Blender's default font (no pixel font: another tell)
+    bpy.ops.object.text_add(location=(-0.097, -0.228, 0.13), rotation=(math.radians(90), math.radians(-3), 0))
+    t = bpy.context.object
+    t.data.body = cfg.get('name', 'CHATGPT')
+    t.data.size = 0.050
+    t.data.extrude = 0.002
+    t.data.materials.append(M_EYE)
+    monke.append(t)
+    # arms: stiff straight cylinders in an A-pose, ball hands
+    A = cfg.get('arm_deg', 28)
+    for sx in (-1, 1):
+        sh = Vector((sx * 0.25, 0, cfg.get('shoulder_z', 0.27)))
+        arm_mat = M_MISSING if (cfg.get('missing_arm') and sx == -1) else M_BODY
+        ang = math.radians(cfg.get('arm_deg_side', {}).get(str(sx), A))
+        L = cfg.get('arm_len_side', {}).get(str(sx), 0.80)
+        d = Vector((sx * math.sin(ang), -0.06, -math.cos(ang))).normalized()
+        mid = sh + d * (L / 2)
+        rot = d.to_track_quat('Z', 'Y').to_euler()
+        cyl(0.062, L, tuple(mid), tuple(rot), arm_mat, verts=8)
+        if str(sx) in cfg.get('peace_side', []):
+            # the AI's attempt at a peace sign: a box palm and two mismatched stick fingers in a V
+            P = cfg.get('peace', {})
+            end = sh + d * L
+            box(tuple(P.get('palm', (0.12, 0.05, 0.09))), tuple(end + d * 0.035), (0, math.radians(P.get('palm_tilt', -6)), 0), arm_mat)
+            for sgn_f, flen in ((-1, P.get('len_a', 0.17)), (1, P.get('len_b', 0.13))):
+                fd = (Matrix.Rotation(math.radians(sgn_f * P.get('spread', 22)), 3, 'Y') @ d).normalized()
+                base = end + d * 0.075 + Vector((sgn_f * 0.032, -0.012, 0))
+                cyl(P.get('finger_r', 0.028), flen, tuple(base + fd * flen / 2), tuple(fd.to_track_quat('Z', 'Y').to_euler()), arm_mat, verts=6)
+        else:
+            sphere(0.085, tuple(sh + d * L), arm_mat, seg=8, rings=6)
+        sphere(0.072, tuple(sh), M_BODY, seg=8, rings=6)
 
 # group the whole crude monke under one root so it can be scaled/placed to match the real model
 bpy.ops.object.empty_add(location=(0, 0, 0))
@@ -207,19 +213,21 @@ tcc = nt.nodes.new('ShaderNodeTexCoord')
 nt.links.new(tcc.outputs['Object'], ck.inputs['Vector'])
 nt.links.new(ck.outputs['Color'], b.inputs['Base Color'])
 b.inputs['Roughness'].default_value = 0.8
-bpy.ops.mesh.primitive_plane_add(size=120, location=(0, 10, -0.62))
+FZ = cfg.get('floor_z', -0.62)
+bpy.ops.mesh.primitive_plane_add(size=120, location=(0, 10, FZ))
 bpy.context.object.data.materials.append(gm)
 
 # primitive 'trees' in an unnaturally even row, one floating
 M_TRUNK = flat('trunk', '#7A5230', spec=0.2)
-M_LEAF = flat('leafy', '#3FA23A', spec=0.2)
-for i, x in enumerate(cfg.get('tree_x', [-4.5, -2.5, -0.5, 1.5, 3.5, 5.5])):
-    y = cfg.get('tree_y', 10.0)
+M_LEAF = flat('leafy', cfg.get('leaf_col', '#3FA23A'), spec=0.2)
+TREES = cfg.get('tree_xy') or [(x, cfg.get('tree_y', 10.0), 1.0) for x in cfg.get('tree_x', [-4.5, -2.5, -0.5, 1.5, 3.5, 5.5])]
+for i, (x, y, s) in enumerate(TREES):
     fl = cfg.get('float_tree', 3)
-    z0 = -0.62 + (0.6 if i == fl else 0.0)
-    bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.18, depth=2.2, location=(x, y, z0 + 1.1))
+    z0 = FZ + (0.6 if i == fl else 0.0)
+    th, cd, cr = cfg.get('tree_shape', (2.2, 2.6, 1.1))      # trunk height, cone height, cone radius
+    bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.18 * s, depth=th * s, location=(x, y, z0 + th / 2 * s))
     bpy.context.object.data.materials.append(M_TRUNK)
-    bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=1.1, depth=2.6, location=(x, y, z0 + 3.2))
+    bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=cr * s, depth=cd * s, location=(x, y, z0 + (th - 0.3 + cd / 2) * s))
     bpy.context.object.data.materials.append(M_LEAF)
 # placeholder cube
 if cfg.get('cube', True):

@@ -183,3 +183,32 @@ Spencer's notes on v4 were that the Claude monke's shading looked slightly off, 
 | 6 | Rating "1/10" vs "10/10" | Generic | Weaker than the FPS idea |
 
 **Recommended Test & Compare set:** v5, v5 with the FPS stat, and the noodle-arm build.
+
+## v6: one continuous scene and a real gorilla for ChatGPT (now the main thumbnail)
+
+Spencer's notes on v5:
+- No stat text (FPS, players). The labels are already text, and more is distracting.
+- The ChatGPT monke should look like an actual gorilla that ChatGPT could plausibly make: decent, but not as good as Claude's.
+- The backgrounds should be the same environment, with the edges of the shed meeting at the split, for a cleaner divide.
+
+**Why v5's backgrounds couldn't meet:**
+- Each side was its own camera, lens-shifted to centre its own monke.
+- At the divider, the left render showed the world to the *right* of its monke and the right render showed the world to the *left*. Those are different places.
+- Shifting one world over would only line up a single depth, and everything else would show parallax.
+
+**The fix:** both renders use **one camera** (50 mm at 1.9 m, no shift).
+- The monkes stand at x = ±0.342, the ¼ and ¾ marks of the frame, and turn 10.2° to face the lens.
+- One treehouse is centred on the divider.
+- Because the camera is identical, every depth lines up, and any divider shape cuts both renders in the same place.
+- The longer lens also flattens perspective on the faces and makes the treehouse larger behind them.
+
+**ChatGPT's gorilla (`gorilla.py`):**
+- A skin-modifier skeleton (hips, chest, neck, long arms) gives a chunky low-poly body.
+- A round head carries a curved Gorilla Tag-style face plate, cut from a sphere with a boolean so it follows the head.
+- Symmetric cartoon eyes, nostrils, a mouth line, ears, a chest patch with a default-font name, and a modelled peace-sign hand.
+- It's scaled so its head matches Claude's in size and height.
+
+**Tested and rejected along the way:**
+- A brow bar: it read as a cap brim.
+- Knuckle balls under the V: phallic risk, replaced with a single curled-finger bar.
+- Big green cone trees behind the teal head: low contrast. They were moved back and switched to a yellower lime.

@@ -260,10 +260,17 @@ aim = bpy.data.objects.new('aim', None)
 link(aim)
 aim.location = tuple(ROOT + Vector((0, 0, cfg.get('aim_z', 0.25))))
 L = cfg.get('lights', {})
-area('key', tuple(L.get('key_pos', (-sgn * 1.4, -2.2, 1.6))), aim, L.get('key', 160), L.get('key_size', 1.6), L.get('key_col', '#FFF4E6'))
-area('rim', tuple(L.get('rim_pos', (sgn * 1.3, 1.2, 1.2))), aim, L.get('rim', 260), L.get('rim_size', 0.9), L.get('rim_col', '#9EE8FF'))
-area('rim2', tuple(L.get('rim2_pos', (-sgn * 1.2, 1.0, 1.0))), aim, L.get('rim2', 120), L.get('rim2_size', 0.9), L.get('rim2_col', '#FFFFFF'))
-area('fill', tuple(L.get('fill_pos', (sgn * 1.8, -1.6, 0.0))), aim, L.get('fill', 50), L.get('fill_size', 2.5), L.get('fill_col', '#CFE0FF'))
+
+
+def rel(p):
+    """light positions are relative to the monke's root in x/y (identical to before when root is at the origin)"""
+    return (p[0] + ROOT.x, p[1] + ROOT.y, p[2])
+
+
+area('key', rel(L.get('key_pos', (-sgn * 1.4, -2.2, 1.6))), aim, L.get('key', 160), L.get('key_size', 1.6), L.get('key_col', '#FFF4E6'))
+area('rim', rel(L.get('rim_pos', (sgn * 1.3, 1.2, 1.2))), aim, L.get('rim', 260), L.get('rim_size', 0.9), L.get('rim_col', '#9EE8FF'))
+area('rim2', rel(L.get('rim2_pos', (-sgn * 1.2, 1.0, 1.0))), aim, L.get('rim2', 120), L.get('rim2_size', 0.9), L.get('rim2_col', '#FFFFFF'))
+area('fill', rel(L.get('fill_pos', (sgn * 1.8, -1.6, 0.0))), aim, L.get('fill', 50), L.get('fill_size', 2.5), L.get('fill_col', '#CFE0FF'))
 CL = cfg.get('center_light')
 if CL:
     cpos = CL.get('pos', (0.80, -0.25, 0.55))
