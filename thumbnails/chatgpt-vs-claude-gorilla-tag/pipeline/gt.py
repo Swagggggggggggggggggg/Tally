@@ -2,7 +2,7 @@
 import bpy, math, os
 from mathutils import Vector, Matrix, Euler
 
-RIG_BLEND = "/tmp/claude-0/-home-user-Tally/702e814a-b90a-5d68-bc9a-bc92c217492c/scratchpad/nacho/rig/GorillaTag_IK_Rig.blend"
+RIG_BLEND = os.environ.get("GT_RIG", os.path.join(os.path.dirname(os.path.abspath(__file__)), "rig", "GorillaTag_IK_Rig.blend"))  # NachoEngine Gorilla_IK_Rig
 
 
 def srgb(h):
@@ -170,7 +170,7 @@ def bone_world(r, name, tail=False):
     return a.matrix_world @ (b.tail if tail else b.head)
 
 
-BRAND = "/tmp/claude-0/-home-user-Tally/702e814a-b90a-5d68-bc9a-bc92c217492c/scratchpad/research/brand/"
+BRAND = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets") + "/"
 
 
 def import_logo(svg, name, width=1.0, depth=0.08, bevel=0.012, mat=None):

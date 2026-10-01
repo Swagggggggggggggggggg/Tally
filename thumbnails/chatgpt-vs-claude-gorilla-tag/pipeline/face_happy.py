@@ -1,8 +1,8 @@
 """Happy (closed smile) variant of the 64x65 Gorilla Tag face texture, pixel-art style."""
-import random
+import os, random
 from PIL import Image
-SRC = "/tmp/claude-0/-home-user-Tally/702e814a-b90a-5d68-bc9a-bc92c217492c/scratchpad/nacho/extracted/gorillatexture.png"
-OUT = "/tmp/claude-0/-home-user-Tally/702e814a-b90a-5d68-bc9a-bc92c217492c/scratchpad/blender/tex/"
+SRC = os.environ.get("GT_FACE", "gorillatexture.png")  # extracted from the NachoEngine rig
+OUT = "tex/"
 rnd = random.Random(7)
 im = Image.open(SRC).convert("RGB")
 px = im.load()

@@ -128,3 +128,25 @@ The close-up portrait won at 160×90: the faces are the largest readable element
 - Claude smiling with a peace sign. The real Gorilla Tag hand's default shape is a two-finger "peace" silhouette.
 - ChatGPT's googly-eyed primitive copy, its stiff missing-texture arm stuck up.
 - A slight diagonal divider. Six divider styles were tested in `concepts/divider_styles.jpg`; at feed size they're nearly indistinguishable, so the diagonal was chosen for energy.
+
+## v4: real environment + golden hour (now the main thumbnail)
+
+Spencer's note on v3: the other hit thumbnails put a real environment, or at least real game assets, behind the character. Seven environment directions were roughed in Higgsfield (`concepts/env_concepts_all.jpg`). Spencer approved **D + E**:
+
+- **D, the same treehouse at two qualities.** Both panels get the same Gorilla Tag-style treehouse in the same spot, mirrored so both huts flank the divider.
+  - ChatGPT's is grey primitive blocks: a slab deck, a box hut and an open roof.
+  - Claude's is plank-by-plank PBR wood: posts, braces, closed gables, railings, a slide, a ladder, a rope bridge and a ring platform.
+- **E, golden-hour backlight on Claude's side only.** The ChatGPT side stays flat Unity-default daylight, so the quality gap is now in the lighting as well as the models.
+
+**How the Claude side is built:**
+- Poly Haven CC0 assets: the `sunset_forest` HDRI, `fir_tree_01`, `fern_02`, `rock_moss_set_01`, and wood and forest-floor PBR textures.
+- A low golden sun lamp aimed from just beside the peace-sign hand. A golden-hour sun sits near the horizon, so it backlights the monke and doesn't sit behind the wordmark.
+- The atmosphere is done in post, driven by Blender's mist (depth) pass:
+  - Distance haze, warmer toward the sun and thinner in the canopy so the white "Claude" label keeps a dark backing.
+  - Light rays cut by the fir trunks.
+  - Sun bloom hidden behind the monke.
+  - Light wrap on the monke's silhouette.
+  - Teal and amber split-tone.
+- An in-scene 3D haze volume was tested and rejected. It turned the whole forest muddy beige.
+
+**Face:** Claude now uses the default in-game Gorilla Tag face (Spencer's call). The untouched face reads as "the real thing", which strengthens the real-vs-fake contrast. The smiling texture edit is kept in `pipeline/face_happy_64px.png`.

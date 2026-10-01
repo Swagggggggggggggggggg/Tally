@@ -4,7 +4,8 @@ Usage: blender -b -P crude.py -- '<json config>'
 import bpy, sys, json, math, random
 from mathutils import Vector, Euler
 
-sys.path.insert(0, '/tmp/claude-0/-home-user-Tally/702e814a-b90a-5d68-bc9a-bc92c217492c/scratchpad/blender')
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gt
 
 cfg = json.loads(sys.argv[sys.argv.index('--') + 1])
@@ -197,6 +198,10 @@ for i, x in enumerate(cfg.get('tree_x', [-4.5, -2.5, -0.5, 1.5, 3.5, 5.5])):
 if cfg.get('cube', True):
     bpy.ops.mesh.primitive_cube_add(size=1.4, location=(cfg.get('cube_x', -2.2), 6.0, 0.08))
     bpy.context.object.data.materials.append(flat('cubeg', '#CFCFCF'))
+
+if cfg.get('env') == 'gt_crude':
+    import env as ENV
+    ENV.build(scn, cfg, 'crude')
 
 # ---------------------------------------------------------------- default-ish lighting: one hard sun + flat ambient
 sun = bpy.data.lights.new('sun', 'SUN')

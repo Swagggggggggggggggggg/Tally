@@ -4,7 +4,8 @@ Usage: blender -b -P panel.py -- '<json config>'
 import bpy, sys, json, math, random
 from mathutils import Vector, Euler, Matrix
 
-sys.path.insert(0, '/tmp/claude-0/-home-user-Tally/702e814a-b90a-5d68-bc9a-bc92c217492c/scratchpad/blender')
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gt
 
 cfg = json.loads(sys.argv[sys.argv.index('--') + 1])
@@ -188,8 +189,9 @@ def pine(x, y, h, r, z0=-0.62):
 
 
 # ground
-bpy.ops.mesh.primitive_plane_add(size=80, location=(0, 10, -0.62))
-bpy.context.object.data.materials.append(grass)
+if not cfg.get('env'):
+    bpy.ops.mesh.primitive_plane_add(size=80, location=(0, 10, -0.62))
+    bpy.context.object.data.materials.append(grass)
 
 # trees spread behind the monke, mostly on the far side of the divider and edges
 for i in range(cfg.get('trees', 26)):
@@ -234,6 +236,10 @@ for i in range(cfg.get('cliffs', 7)):
     o = bpy.context.object
     o.scale = (1.4, 0.8, rnd.uniform(1.2, 2.0))
     o.data.materials.append(rock)
+
+if cfg.get('env') == 'gt_real':
+    import env as ENV
+    ENV.build(scn, cfg, 'real')
 
 # ---------------------------------------------------------------- lights
 def area(name, loc, target, energy, size, color):
@@ -308,6 +314,14 @@ def frame_to_world(fx, fy, dist):
     return top.lerp(bot, fy)
 
 
+if cfg.get('sun_frame') and bpy.data.objects.get('golden_sun'):
+    # aim the golden sun so it sits at a chosen point in the frame (where the 2D glow goes in compositing)
+    sfx, sfy = cfg['sun_frame']
+    spt = frame_to_world(sfx, sfy, 30.0)
+    sdir = (co.location - spt).normalized()          # light travels from that point toward the camera
+    bpy.data.objects['golden_sun'].rotation_euler = sdir.to_track_quat('-Z', 'Y').to_euler()
+    print('SUN dir', tuple(round(v, 3) for v in sdir))
+
 POLE = cfg.get('pole')
 if POLE:
     # a white bar that IS the thumbnail divider: left edge sits exactly on frame x=0.5 (panel boundary)
@@ -377,6 +391,29 @@ scn.view_settings.look = R.get('look', 'AgX - Punchy')
 scn.render.image_settings.file_format = 'PNG'
 scn.render.image_settings.color_depth = '16'
 scn.render.filepath = cfg['out']
+if cfg.get('mist_out'):
+    # depth pass (0 near .. 1 far) written next to the beauty render, for 2D atmosphere in compositing
+    vl = bpy.context.view_layer
+    vl.use_pass_mist = True
+    scn.world.mist_settings.start = cfg.get('mist_start', 2.0)
+    scn.world.mist_settings.depth = cfg.get('mist_depth', 30.0)
+    scn.world.mist_settings.falloff = 'LINEAR'
+    scn.use_nodes = True
+    tree = scn.node_tree
+    for n in list(tree.nodes):
+        tree.nodes.remove(n)
+    rl = tree.nodes.new('CompositorNodeRLayers')
+    comp = tree.nodes.new('CompositorNodeComposite')
+    tree.links.new(rl.outputs['Image'], comp.inputs['Image'])
+    fo = tree.nodes.new('CompositorNodeOutputFile')
+    import os as _os
+    fo.base_path = _os.path.dirname(_os.path.abspath(cfg['mist_out']))
+    fo.file_slots[0].path = _os.path.splitext(_os.path.basename(cfg['mist_out']))[0] + '_'
+    fo.format.file_format = 'PNG'
+    fo.format.color_depth = '16'
+    fo.format.color_mode = 'BW'
+    tree.links.new(rl.outputs['Mist'], fo.inputs[0])
+
 if cfg.get('save_blend'):
     bpy.ops.file.pack_all()
     bpy.ops.wm.save_as_mainfile(filepath=cfg['save_blend'], compress=True)
@@ -395,6 +432,7 @@ if cfg.get('mask_out'):
         if o.type in ('MESH', 'CURVE', 'FONT') and o not in keep:
             o.hide_render = True
     scn.render.film_transparent = True
+    scn.use_nodes = False          # don't let the mask pass overwrite the mist file
     scn.cycles.samples = 4
     scn.cycles.use_denoising = False
     scn.render.image_settings.color_mode = 'RGBA'

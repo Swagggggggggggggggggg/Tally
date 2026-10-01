@@ -4,7 +4,7 @@ python3 concepts.py NAME [NAME...] [--hi]
 import json, subprocess, sys, os
 from concurrent.futures import ThreadPoolExecutor
 
-B = "/opt/blender/blender-4.5.14-linux-x64/blender"
+B = os.environ.get("BLENDER", "/opt/blender/blender-4.5.14-linux-x64/blender")
 HERE = os.path.dirname(os.path.abspath(__file__))
 HI = "--hi" in sys.argv
 RES = {"w": 2560, "h": 1440, "samples": 64} if HI else {"w": 960, "h": 540, "samples": 12}
@@ -60,6 +60,19 @@ PRESETS = {
     "portrait": dict(
         L=dict(arm_deg=14, arm_deg_side={"-1": 177}, offset=[0, 0, 0.17], cam=cam([0, -1.05, 0.70], [0, 0, 0.70], 30, "L")),
         R=dict(pose=PEACE, cam=cam([0, -1.05, 0.70], [0, 0, 0.70], 30, "R"))),
+    # D+E: same Gorilla Tag treehouse at two qualities, golden-hour backlight on the Claude side
+    "treehouse": dict(
+        L=dict(arm_deg=14, arm_deg_side={"-1": 177}, offset=[0, 0, 0.17], env="gt_crude",
+               layout={"th_x": 1.5, "th_y": 5.4, "deck_z": 0.32},
+               cam=cam([0, -1.05, 0.70], [0, 0, 0.70], 30, "L")),
+        R=dict(pose=PEACE, face=None, env="gt_real", trees=0, cliffs=0, treehouse=False, no_env_bounce=False, sun_frame=[0.86, 0.42],
+               layout={"th_x": 1.5, "th_y": 5.4, "deck_z": 0.32},
+               hdri={"name": "sunset_forest", "rot": 0, "tint": "#FFF1DE", "strength": 1.0},
+               sun={"energy": 8.0, "color": "#FFA84F", "angle": 3},
+               haze=None, ferns=160, rocks=6,
+               lights={"key": 200, "key_col": "#FFE9D2", "rim": 700, "rim_col": "#FFB561", "rim2": 500, "rim2_col": "#FFC780",
+                       "fill": 60, "fill_col": "#D9E6FF", "sun": 0},
+               cam=cam([0, -1.05, 0.70], [0, 0, 0.70], 30, "R", fstop=4.5))),
     # same, but Claude's monke grips the divider bar like a climbing pole
     "grip": dict(
         L=dict(arm_deg=14, arm_deg_side={"-1": 177}, offset=[0, 0, 0.17], cam=cam([0, -1.05, 0.70], [0, 0, 0.70], 30, "L")),
@@ -102,6 +115,8 @@ def job(name, side):
         cfg = dict(REAL_ENV)
         cfg.update({k: v for k, v in p.items()})
         cfg.update(render=RES, out=f"{OUT}/{name}_R.png", mask_out=f"{OUT}/{name}_R_mask.png")
+        if cfg.get('env') == 'gt_real':
+            cfg['mist_out'] = f"{OUT}/{name}_R_mist.png"
         script = "panel.py"
     if HI:
         cfg["save_blend"] = f"{OUT}/{name}_{side}.blend"
@@ -112,7 +127,8 @@ def job(name, side):
 
 if __name__ == "__main__":
     names = [a for a in sys.argv[1:] if not a.startswith("--")]
+    sides = os.environ.get("SIDES", "LR")
     os.makedirs(os.path.join(HERE, OUT), exist_ok=True)
-    with ThreadPoolExecutor(max_workers=3) as ex:
-        for res in ex.map(lambda t: job(*t), [(n, s) for n in names for s in ("L", "R")]):
+    with ThreadPoolExecutor(max_workers=int(os.environ.get("JOBS", "3"))) as ex:
+        for res in ex.map(lambda t: job(*t), [(n, s) for n in names for s in sides]):
             print(res)

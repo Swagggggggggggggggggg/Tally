@@ -111,6 +111,9 @@ def main(cfgp):
                 Lr = img2
             else:
                 Rr = img2
+    if cfg.get("golden"):
+        import golden
+        Rr = golden.apply(Rr, cfg["golden"])
     D = cfg.get("divider", {})
     tx, bx = D.get("top", 0.53) * W, D.get("bottom", 0.47) * W
     style = D.get("style", "line")

@@ -1,9 +1,9 @@
 """Make expression variants of the 64x65 Gorilla Tag face texture while keeping its pixel-art style."""
-import random, sys, math
+import os, random, sys, math
 from PIL import Image
 
-SRC = "/tmp/claude-0/-home-user-Tally/702e814a-b90a-5d68-bc9a-bc92c217492c/scratchpad/nacho/extracted/gorillatexture.png"
-OUT = "/tmp/claude-0/-home-user-Tally/702e814a-b90a-5d68-bc9a-bc92c217492c/scratchpad/blender/tex/"
+SRC = os.environ.get("GT_FACE", "gorillatexture.png")  # extracted from the NachoEngine rig
+OUT = "tex/"
 
 # eye boxes measured from the texture grid (inclusive pixel bounds)
 EYES = {
