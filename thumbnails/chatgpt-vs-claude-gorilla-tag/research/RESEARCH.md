@@ -95,6 +95,12 @@ This tells us two things. The topic works for a small Gorilla Tag channel. And o
 
 ---
 
-## Next test (needs the video's real result)
+## Update: contrast version is now the main thumbnail
 
-The strongest genre lever is the gap between the builds. Once the winner is known, a Test & Compare variant could show each panel's monke as that AI's actual build, for example blocky or janky against polished. Test it against this hero. Test & Compare judges on watch-time share, not CTR.
+Spencer chose to lean into the quality-gap lever. Claude stays on the right as the polished real model. ChatGPT's side becomes a deliberately janky primitive-shape build:
+- googly mismatched eyes
+- T-pose arms, one with a missing-texture checker
+- a name tag in the default font
+- a Unity-default sky and primitive trees
+
+The stare-down hero stays as the alternate for Test & Compare. If the video's actual result flips, swap which side gets the crude build so the thumbnail's promise matches the footage.

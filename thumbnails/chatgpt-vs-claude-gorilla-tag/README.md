@@ -5,27 +5,31 @@ The full-resolution master is `thumbnail_2560x1440.png`.
 
 ---
 
-## The concept
+## Main concept: quality contrast
 
-The thumbnail uses the format's standard split screen with each AI's logo and name as the panel header. Each side has a Gorilla Tag monke rendered from the real model and coloured to match its AI. The two monkes face off in a stare-down.
+This uses the format's standard split screen with logo and name headers. Both sides show the same subject in the same spot. Only the quality is different.
 
-- **Viewer sees:** ChatGPT's monke vs Claude's monke, in Gorilla Tag.
-- **Viewer doesn't know:** whose Gorilla Tag is better. That question is the click.
+**ChatGPT (left):** a janky "built from scratch" monke made of primitive shapes.
+- Capsule body and a low-poly ball head.
+- A crooked face plate with googly, mismatched eyes.
+- Stiff T-pose arms, one with a magenta and black missing-texture checker.
+- The name tag is in Blender's default font.
+- The background is a Unity-default sky with flat primitive trees.
+
+**Claude (right):** the real Gorilla Tag model (NachoEngine rig).
+- Pixel fur in Claude orange (lit fur #D0764D against the brand's #D97757).
+- Angry eyelids and the in-game CLAUDE name tag.
+- A bright forest with a soft outer glow around the monke.
+
+This is the genre's strongest outlier pattern, a big and funny quality gap between the two sides: Crazy Cat at 40x their median, Tikoco at 35.5x, quisshy's comedic-fail side at 35.9x.
+
+> If ChatGPT ends up winning in the video, swap which side gets the crude build before uploading. Test & Compare scores on watch time, so a thumbnail that promises the opposite of the video will show up there.
 
 ---
 
-## Why it looks like this
+## Alternate: stare-down (`alt_stare-down/`)
 
-- **Genre template:** split panel, ChatGPT on the left, white knot plus "ChatGPT", orange spark plus the serif "Claude". This is what 58 of the 64 top ChatGPT-vs-Claude thumbnails do, so the video reads as part of that series in Suggested.
-- **Monkes coloured by brand:**
-  - ChatGPT is charcoal, matching its current app icon.
-  - Claude is orange; the lit fur measures #D0764D against the brand #D97757.
-  - None of the competitors do this.
-- **Real Gorilla Tag model:** the NachoEngine rig, with in-game pixel fur, the face plate, and the chest name tags (CHATGPT / CLAUDE).
-- **Angry eyelids and closed mouths:** the expression is pixel-edited into the original 64px face texture. It also avoids the saturated shocked-face trope.
-- **Bright daylight forest:** this separates it from the dark, muted thumbnail on DynamicGaming's same-title video, and from the horror-heavy Gorilla Tag feed.
-- **Outer glow on each monke and pale sky behind the heads:** both monkes hold up in grayscale and at 160×90.
-- **Bottom-right timestamp area:** nothing important sits there.
+Both monkes are polished and colour-coded to their brand, glaring at each other. It shows no winner. Use it as a Test & Compare option, or as the thumbnail if the results are close.
 
 ---
 
@@ -33,15 +37,9 @@ The thumbnail uses the format's standard split screen with each AI's logo and na
 
 | Path | What |
 |---|---|
-| `thumbnail_1280x720.jpg` / `.png` | Upload-ready |
-| `thumbnail_2560x1440.png` | Master |
-| `blender/ChatGPT_panel.blend`, `blender/Claude_panel.blend` | Editable Blender 4.5 scenes with textures packed |
-| `pipeline/` | Scripts that rebuild it: `final_render.sh` produces the panels and `compose.py` builds the composite. They need the NachoEngine rig; set `RIG_BLEND` in `gt.py` to wherever it lives on your machine. |
-| `qa/` | Feed-size and grayscale checks |
+| `thumbnail_1280x720.jpg` / `.png`, `thumbnail_2560x1440.png` | Main (contrast) |
+| `alt_stare-down/` | Alternate version |
+| `blender/ChatGPT_crude_panel.blend`, `blender/Claude_panel.blend`, `blender/ChatGPT_panel.blend` | Editable Blender 4.5 scenes with textures packed |
+| `pipeline/` | Rebuild scripts: `final_render_contrast.sh` / `crude.py` for the crude side, `final_render.sh` / `panel.py` for the rig sides, `compose.py` plus `cfg_contrast.json` for the composite. Set `RIG_BLEND` in `gt.py` to wherever the NachoEngine rig lives on your machine. |
+| `qa/` | Feed-size, grayscale and safe-zone checks (stare-down checks in `qa/stare-down/`) |
 | `research/RESEARCH.md` | Research summary, competitor data and rejected concepts |
-
----
-
-## A/B idea for later
-
-The genre's biggest outliers show a visible quality gap between the two builds. Once you know which AI won, a Test & Compare variant could show each panel's monke as that AI's actual build. Test it against this one.
