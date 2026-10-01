@@ -48,7 +48,6 @@ def add(o, mat, smooth=False):
     o.data.materials.append(mat)
     for p in o.data.polygons:
         p.use_smooth = smooth
-    o.location += Vector((OX, OY, OZ))
     monke.append(o)
     return o
 
@@ -74,9 +73,10 @@ def box(size, loc, rot, mat):
 
 # ---- body: a Unity-style capsule, a bit too stiff and too narrow at the shoulders
 BR = cfg.get('body_r', 0.27)
-cyl(BR, 0.42, (0, 0, -0.06), (0, 0, 0), M_BODY, verts=12)
+BH = cfg.get('body_h', 0.18)          # straight section of the capsule (real GT torsos are short)
+cyl(BR, BH, (0, 0, 0.15 - BH / 2), (0, 0, 0), M_BODY, verts=12)
 sphere(BR, (0, 0, 0.15), M_BODY, seg=12, rings=8)
-sphere(BR, (0, 0, -0.27), M_BODY, seg=12, rings=8)
+sphere(BR, (0, 0, 0.15 - BH), M_BODY, seg=12, rings=8)
 for o in monke[-3:]:
     o.scale = (1.0, 0.78, 1.0)
 # ---- head: low-poly sphere sunk into the body, slightly off-centre
@@ -97,9 +97,9 @@ box((0.070, 0.010, 0.010), (hx + 0.006, fy + 0.004, hz - 0.068), (0, math.radian
 sphere(0.045, (hx - hr - 0.005, -0.01, hz + 0.01), M_FACE, seg=8, rings=6, scale=(0.5, 1, 1))
 sphere(0.034, (hx + hr + 0.002, -0.01, hz + 0.03), M_FACE, seg=8, rings=6, scale=(0.5, 1, 1))
 # chest patch: a flat box slapped on the front
-box((0.24, 0.02, 0.30), (0.0, -0.212, 0.0), (0, math.radians(2), 0), M_FACE)
+box((0.23, 0.02, 0.24), (0.0, -0.215, 0.07), (0, math.radians(2), 0), M_FACE)
 # name tag in Blender's default font (no pixel font: another tell)
-bpy.ops.object.text_add(location=(OX - 0.10, OY - 0.225, OZ + 0.10), rotation=(math.radians(90), math.radians(-3), 0))
+bpy.ops.object.text_add(location=(-0.097, -0.228, 0.13), rotation=(math.radians(90), math.radians(-3), 0))
 t = bpy.context.object
 t.data.body = cfg.get('name', 'CHATGPT')
 t.data.size = 0.050
@@ -111,7 +111,7 @@ A = cfg.get('arm_deg', 28)
 for sx in (-1, 1):
     sh = Vector((sx * 0.25, 0, cfg.get('shoulder_z', 0.27)))
     arm_mat = M_MISSING if (cfg.get('missing_arm') and sx == -1) else M_BODY
-    ang = math.radians(A)
+    ang = math.radians(cfg.get('arm_deg_side', {}).get(str(sx), A))
     L = 0.80
     d = Vector((sx * math.sin(ang), -0.06, -math.cos(ang))).normalized()
     mid = sh + d * (L / 2)
@@ -119,6 +119,18 @@ for sx in (-1, 1):
     cyl(0.062, L, tuple(mid), tuple(rot), arm_mat, verts=8)
     sphere(0.085, tuple(sh + d * L), arm_mat, seg=8, rings=6)
     sphere(0.072, tuple(sh), M_BODY, seg=8, rings=6)
+
+# group the whole crude monke under one root so it can be scaled/placed to match the real model
+bpy.ops.object.empty_add(location=(0, 0, 0))
+CR = bpy.context.object
+CR.name = 'crude_root'
+for o in monke:
+    o.parent = CR
+SC = cfg.get('scale', 1.0)
+CR.scale = (SC, SC, SC)
+CR.location = (OX, OY, OZ)
+CR.rotation_euler = (0, 0, math.radians(cfg.get('turn', 0.0)))
+bpy.context.view_layer.update()
 
 # ---------------------------------------------------------------- Unity-default style world
 world = bpy.data.worlds.new('sky')
@@ -212,6 +224,8 @@ tgt = Vector(C.get('target', (0.32, 0, 0.49)))
 co.rotation_euler = (tgt - co.location).to_track_quat('-Z', 'Y').to_euler()
 cam.lens = C.get('lens', 34)
 cam.dof.use_dof = False          # everything flat and sharp: cheap look
+cam.shift_x = C.get('shift_x', 0.0)
+cam.shift_y = C.get('shift_y', 0.0)
 scn.camera = co
 
 R = cfg.get('render', {})

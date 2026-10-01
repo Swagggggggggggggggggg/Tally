@@ -23,7 +23,8 @@ gt.set_name(M, cfg.get('name', 'GORILLA'))
 if cfg.get('face'):
     n = gt.set_face_image(M, cfg['face'])
     print('face textures replaced:', n)
-gt.place(M, (0, 0, 0), rot_z_deg=sgn * cfg.get('turn', 28))
+ROOT = Vector(cfg.get('root', (0, 0, 0)))
+gt.place(M, tuple(ROOT), rot_z_deg=sgn * cfg.get('turn', 28))
 
 # pose ----------------------------------------------------------------
 P = cfg.get('pose', {})
@@ -44,16 +45,29 @@ def ld(v):
     return mw.to_3x3() @ Vector((v[0] * mx, v[1], v[2]))
 
 
-if 'lead_world' in P:
+if 'hands_world' in P:
+    # explicit pose: hand targets relative to the monke root (world axes), elbow directions, finger curls
+    for sd, hp in P['hands_world'].items():
+        gt.set_hand_world(M, sd, ROOT + Vector(hp), rot_deg=P.get('hand_rot', {}).get(sd))
+    for sd, ed in P.get('elbows_world', {}).items():
+        print('elbow', sd, gt.aim_elbow(M, sd, Vector(ed)))
+    for sd, cv in P.get('curls', {}).items():
+        gt.curl(M, sd, *cv)
+    bpy.context.view_layer.update()
+    for sd, hp in P['hands_world'].items():
+        print('HAND', sd, 'target', tuple(round(v, 3) for v in (ROOT + Vector(hp))), 'got', tuple(round(v, 3) for v in gt.bone_world(M, 'hand.' + sd)),
+              'ctrl', tuple(round(v, 3) for v in gt.bone_world(M, 'hand_controller.' + sd)))
+elif 'lead_world' in P:
     lwp = P['lead_world']
     gt.set_hand_world(M, lead_side, Vector((lwp[0] * sgn, lwp[1], lwp[2])), rot_deg=P.get('lead_rot'))
 else:
     gt.set_hand_world(M, lead_side, lw(P.get('lead', (0.32, -0.62, 0.32))), rot_deg=P.get('lead_rot'))
-gt.set_hand_world(M, rear_side, lw(P.get('rear', (-0.34, -0.10, -0.28))), rot_deg=P.get('rear_rot'))
-print('elbow lead', gt.aim_elbow(M, lead_side, ld(P.get('lead_elbow', (0.7, 0.1, -0.7)))))
-print('elbow rear', gt.aim_elbow(M, rear_side, ld(P.get('rear_elbow', (-0.8, 0.2, -0.4)))))
-gt.curl(M, lead_side, *P.get('lead_curl', (12, 18, 0)))
-gt.curl(M, rear_side, *P.get('rear_curl', (40, 45, 20)))
+if 'hands_world' not in P:
+    gt.set_hand_world(M, rear_side, lw(P.get('rear', (-0.34, -0.10, -0.28))), rot_deg=P.get('rear_rot'))
+    print('elbow lead', gt.aim_elbow(M, lead_side, ld(P.get('lead_elbow', (0.7, 0.1, -0.7)))))
+    print('elbow rear', gt.aim_elbow(M, rear_side, ld(P.get('rear_elbow', (-0.8, 0.2, -0.4)))))
+    gt.curl(M, lead_side, *P.get('lead_curl', (12, 18, 0)))
+    gt.curl(M, rear_side, *P.get('rear_curl', (40, 45, 20)))
 bpy.context.view_layer.update()
 print('lead hand world', gt.bone_world(M, 'hand.' + lead_side))
 
@@ -238,7 +252,7 @@ def area(name, loc, target, energy, size, color):
 
 aim = bpy.data.objects.new('aim', None)
 link(aim)
-aim.location = (0, 0, 0.25)
+aim.location = tuple(ROOT + Vector((0, 0, cfg.get('aim_z', 0.25))))
 L = cfg.get('lights', {})
 area('key', (-sgn * 1.4 + sgn * 0.0, -2.2, 1.6), aim, L.get('key', 160), 1.6, L.get('key_col', '#FFF4E6'))
 area('rim', (sgn * 1.3, 1.2, 1.2), aim, L.get('rim', 260), 0.9, L.get('rim_col', '#9EE8FF'))
@@ -294,6 +308,42 @@ def frame_to_world(fx, fy, dist):
     return top.lerp(bot, fy)
 
 
+POLE = cfg.get('pole')
+if POLE:
+    # a white bar that IS the thumbnail divider: left edge sits exactly on frame x=0.5 (panel boundary)
+    d = POLE.get('dist', 0.8)
+    fr = [co.matrix_world @ (v * (d / abs(v.z))) for v in cam.view_frame(scene=scn)]
+    tr, br, bl, tl = fr
+    width_w = (tr - tl).length
+    rad = POLE.get('frac', 0.012) * width_w        # radius as a fraction of frame width at that depth
+    fx = 0.5 + rad / width_w
+    mid = tl.lerp(tr, fx).lerp(bl.lerp(br, fx), 0.5)
+    up = (tl - bl).normalized()
+    bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=rad, depth=(tl - bl).length * 1.6, location=mid)
+    po = bpy.context.object
+    po.rotation_euler = up.to_track_quat('Z', 'Y').to_euler()
+    pm = bpy.data.materials.new('pole')
+    pm.use_nodes = True
+    pb_ = pm.node_tree.nodes['Principled BSDF']
+    pb_.inputs['Base Color'].default_value = (1, 1, 1, 1)
+    pb_.inputs['Emission Color'].default_value = (1, 1, 1, 1)
+    pb_.inputs['Emission Strength'].default_value = POLE.get('emit', 0.55)
+    pb_.inputs['Roughness'].default_value = 0.4
+    po.data.materials.append(pm)
+    po.visible_shadow = POLE.get('shadow', True)
+    print('POLE at', tuple(round(v, 3) for v in mid), 'radius', round(rad, 4))
+    if POLE.get('grip'):
+        gfy = POLE.get('grip_fy', 0.55)
+        gp = tl.lerp(tr, fx).lerp(bl.lerp(br, fx), gfy)
+        gs = POLE.get('grip_side', 'R')
+        gp = gp + Vector(POLE.get('grip_offset', (0.02, 0.0, 0.0)))
+        gt.set_hand_world(M, gs, gp, rot_deg=POLE.get('grip_rot'))
+        if POLE.get('grip_elbow'):
+            print('grip elbow', gt.aim_elbow(M, gs, Vector(POLE['grip_elbow'])))
+        gt.curl(M, gs, *POLE.get('grip_curl', (75, 75, 60)))
+        bpy.context.view_layer.update()
+        print('GRIP at', tuple(round(v, 3) for v in gp))
+
 if 'lead_frame' in P:
     fx, fy, dist = P['lead_frame']
     if side == 'right':
@@ -332,6 +382,12 @@ if cfg.get('save_blend'):
     bpy.ops.wm.save_as_mainfile(filepath=cfg['save_blend'], compress=True)
 bpy.ops.render.render(write_still=True)
 print('DONE', cfg['out'])
+if cfg.get('debug_cam'):
+    DC = cfg['debug_cam']
+    co.location = Vector(DC['loc']); co.rotation_euler = (Vector(DC['target']) - co.location).to_track_quat('-Z', 'Y').to_euler()
+    cam.lens = DC['lens']; cam.shift_x = 0; cam.shift_y = 0; cam.dof.use_dof = False
+    scn.render.filepath = cfg['out'].replace('.png', '_debug.png')
+    bpy.ops.render.render(write_still=True)
 if cfg.get('mask_out'):
     # silhouette pass: only the monke (and its name tag), transparent film
     keep = {M['arm'], M['mesh']} | ({M['text']} if M['text'] else set())

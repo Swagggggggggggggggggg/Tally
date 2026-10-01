@@ -104,3 +104,27 @@ Spencer chose to lean into the quality-gap lever. Claude stays on the right as t
 - a Unity-default sky and primitive trees
 
 The stare-down hero stays as the alternate for Test & Compare. If the video's actual result flips, swap which side gets the crude build so the thumbnail's promise matches the footage.
+
+## v3: rebuilt from the most viral thumbnails (now the main thumbnail)
+
+Spencer's notes on v2: Claude shouldn't look mad, the poses should be original, and the reference should be the most viral of the viral.
+
+**What the top-viral study found** (`concepts/viral_top_*.jpg` vs `concepts/viral_low_performers.jpg`):
+- The hits show the **same subject, same pose, same framing**, and only the quality differs. The crude side often reads as unfinished or default-engine: Crazy Cat's flat noob, Minimunch's Geometry Dash cube, HollowWolf's FIFA player. Characters either stare at the camera (Steve, the GD cube, FNAF faces) or are shot third person from behind (tef's Fortnite).
+- The low performers mostly show two near-identical good-looking panels (mxks, WeeklyHow, Crazy Cat's Unity vs VSCode at 29K). They have no visible gap.
+
+**Concepts built in Blender** (`concepts/blender_concepts.jpg`):
+1. Waist-up stare.
+2. Close-up faces.
+3. T-pose vs celebrating V-pose.
+4. Third person from behind.
+5. Full body.
+6. The monke gripping the divider as a climbing pole.
+
+The close-up portrait won at 160×90: the faces are the largest readable element and the gap between them is obvious. The third-person version lost because the Gorilla Tag monke is unrecognizable from behind at feed size. The grip lost because the bar reads as a line, not a pole, and the arm covered the name tag.
+
+**Final choices:**
+- Chest-up portrait, both staring at the camera.
+- Claude smiling with a peace sign. The real Gorilla Tag hand's default shape is a two-finger "peace" silhouette.
+- ChatGPT's googly-eyed primitive copy, its stiff missing-texture arm stuck up.
+- A slight diagonal divider. Six divider styles were tested in `concepts/divider_styles.jpg`; at feed size they're nearly indistinguishable, so the diagonal was chosen for energy.

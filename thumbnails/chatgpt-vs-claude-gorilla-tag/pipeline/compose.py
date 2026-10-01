@@ -113,8 +113,32 @@ def main(cfgp):
                 Rr = img2
     D = cfg.get("divider", {})
     tx, bx = D.get("top", 0.53) * W, D.get("bottom", 0.47) * W
+    style = D.get("style", "line")
+    # divider path from top to bottom (list of points), shared by the mask and the drawn line
+    if style == "zigzag":
+        n = D.get("teeth", 7)
+        amp = D.get("amp", 0.018) * W
+        path = [(tx, -10)]
+        for i in range(1, n * 2):
+            t = i / (n * 2)
+            x = tx + (bx - tx) * t + (amp if i % 2 else -amp)
+            path.append((x, t * H))
+        path.append((bx, H + 10))
+    elif style == "pixel":
+        step = D.get("step", 0.045) * H
+        amp = D.get("amp", 0.012) * W
+        path, y, k = [], -10.0, 0
+        import random as _r
+        rr = _r.Random(5)
+        x = tx
+        while y < H + 10:
+            x = tx + (bx - tx) * max(0, y) / H + rr.choice([-amp, 0, amp])
+            path += [(x, y), (x, y + step)]
+            y += step
+    else:
+        path = [(tx, -10), (bx, H + 10)]
     mask = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(mask).polygon([(0, 0), (tx, 0), (bx, H), (0, H)], fill=255)
+    ImageDraw.Draw(mask).polygon([(-10, -10)] + path + [(-10, H + 10)], fill=255)
     base = Image.composite(Lr, Rr, mask).convert("RGBA")
     # optional outer glow around each monke (from silhouette masks), clipped to its own panel
     G = cfg.get("monke_glow")
@@ -134,7 +158,7 @@ def main(cfgp):
     # divider: soft dark shadow then white line
     dw = int(D.get("width", 0.006) * W)
     line = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(line).line([(tx, -10), (bx, H + 10)], fill=255, width=dw)
+    ImageDraw.Draw(line).line(path, fill=255, width=dw, joint="curve")
     base.alpha_composite(glow_layer(line, D.get("shadow_r", 10), D.get("shadow_op", 0.6)))
     if D.get("glow_op", 0):
         base.alpha_composite(glow_layer(line, D.get("glow_r", 14), D["glow_op"], (255, 255, 255)))
@@ -147,6 +171,21 @@ def main(cfgp):
     m = cfg.get("label_margin", [0.035, 0.045])
     place_label(base, ll, m[0] * W, m[1] * H, cfg)
     place_label(base, lr, W - m[0] * W - lr.width, m[1] * H, cfg)
+    VS = cfg.get("vs")
+    if VS:
+        f = ImageFont.truetype(VS.get("font", "../research/brand/fonts/LuckiestGuy-Regular.ttf"), int(VS.get("size", 0.16) * H))
+        t = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        dd = ImageDraw.Draw(t)
+        cx, cy = VS.get("pos", [0.5, 0.62])
+        bb = dd.textbbox((0, 0), "VS", font=f)
+        x0 = cx * W - (bb[2] - bb[0]) / 2 - bb[0]
+        y0 = cy * H - (bb[3] - bb[1]) / 2 - bb[1]
+        sw = int(VS.get("stroke", 0.012) * H)
+        dd.text((x0, y0), "VS", font=f, fill=tuple(int(VS.get("color", "#FF2E2E")[i:i + 2], 16) for i in (1, 3, 5)) + (255,),
+                stroke_width=sw, stroke_fill=(255, 255, 255, 255))
+        t = t.rotate(VS.get("angle", 8), resample=Image.BICUBIC, center=(cx * W, cy * H))
+        base.alpha_composite(glow_layer(t.split()[3], 10, 1.2))
+        base.alpha_composite(t)
     # optional overlay (e.g. spark at the divider)
     for ov in cfg.get("overlays", []):
         o = Image.open(ov["path"]).convert("RGBA")
