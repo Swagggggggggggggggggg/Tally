@@ -1,0 +1,48 @@
+{
+ "left": "../blender/final/L.png",
+ "right": "../blender/final/R.png",
+ "out": "final/thumb",
+ "divider": {
+  "top": 0.53,
+  "bottom": 0.47,
+  "width": 0.006,
+  "shadow_r": 8,
+  "shadow_op": 0.5
+ },
+ "label_left": {
+  "logo": "openai_white.png",
+  "text": "ChatGPT",
+  "font": "fonts/Inter.ttf",
+  "weight": 700,
+  "height": 0.15,
+  "cap_ratio": 0.66,
+  "gap": 0.2
+ },
+ "label_right": {
+  "wordmark": "claude_wordmark_white.png",
+  "height": 0.14
+ },
+ "label_margin": [
+  0.047,
+  0.055
+ ],
+ "label_style": {
+  "glow_r": 14,
+  "glow_op": 1.6,
+  "stroke": 2,
+  "stroke_op": 0.55
+ },
+ "grade_final": {
+  "sat": 1.1,
+  "con": 1.08
+ },
+ "monke_glow": {
+  "left_mask": "../blender/final/L_mask.png",
+  "right_mask": "../blender/final/R_mask.png",
+  "radius": 10,
+  "spread": 4,
+  "opacity": 0.6,
+  "left_color": "#E6FBFF",
+  "right_color": "#FFF4E2"
+ }
+}
