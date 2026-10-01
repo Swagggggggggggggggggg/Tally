@@ -2,7 +2,7 @@
 Usage: blender -b -P crude.py -- '<json config>'
 """
 import bpy, sys, json, math, random
-from mathutils import Vector, Euler
+from mathutils import Vector, Euler, Matrix
 
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -18,10 +18,27 @@ OX, OY, OZ = cfg.get('offset', (0.0, 0.0, 0.0))   # whole-monke offset to line u
 def flat(name, hx, rough=0.55, spec=0.35):
     m = bpy.data.materials.new(name)
     m.use_nodes = True
-    b = m.node_tree.nodes['Principled BSDF']
+    nt = m.node_tree
+    b = nt.nodes['Principled BSDF']
     b.inputs['Base Color'].default_value = gt.srgb(hx)
     b.inputs['Roughness'].default_value = rough
     b.inputs['Specular IOR Level'].default_value = spec
+    D = cfg.get('mat_detail')
+    if D:
+        # a touch of real-world surface: roughness breakup + faint bump, like a cheap vinyl toy
+        nz = nt.nodes.new('ShaderNodeTexNoise')
+        nz.inputs['Scale'].default_value = D.get('scale', 40.0)
+        nz.inputs['Detail'].default_value = 6.0
+        mr = nt.nodes.new('ShaderNodeMapRange')
+        mr.inputs['To Min'].default_value = max(0.0, rough - D.get('rough_var', 0.15))
+        mr.inputs['To Max'].default_value = min(1.0, rough + D.get('rough_var', 0.15))
+        nt.links.new(nz.outputs['Fac'], mr.inputs['Value'])
+        nt.links.new(mr.outputs['Result'], b.inputs['Roughness'])
+        bp = nt.nodes.new('ShaderNodeBump')
+        bp.inputs['Strength'].default_value = D.get('bump', 0.08)
+        bp.inputs['Distance'].default_value = 0.002
+        nt.links.new(nz.outputs['Fac'], bp.inputs['Height'])
+        nt.links.new(bp.outputs['Normal'], b.inputs['Normal'])
     return m
 
 
@@ -113,12 +130,22 @@ for sx in (-1, 1):
     sh = Vector((sx * 0.25, 0, cfg.get('shoulder_z', 0.27)))
     arm_mat = M_MISSING if (cfg.get('missing_arm') and sx == -1) else M_BODY
     ang = math.radians(cfg.get('arm_deg_side', {}).get(str(sx), A))
-    L = 0.80
+    L = cfg.get('arm_len_side', {}).get(str(sx), 0.80)
     d = Vector((sx * math.sin(ang), -0.06, -math.cos(ang))).normalized()
     mid = sh + d * (L / 2)
     rot = d.to_track_quat('Z', 'Y').to_euler()
     cyl(0.062, L, tuple(mid), tuple(rot), arm_mat, verts=8)
-    sphere(0.085, tuple(sh + d * L), arm_mat, seg=8, rings=6)
+    if str(sx) in cfg.get('peace_side', []):
+        # the AI's attempt at a peace sign: a box palm and two mismatched stick fingers in a V
+        P = cfg.get('peace', {})
+        end = sh + d * L
+        box(tuple(P.get('palm', (0.12, 0.05, 0.09))), tuple(end + d * 0.035), (0, math.radians(P.get('palm_tilt', -6)), 0), arm_mat)
+        for sgn_f, flen in ((-1, P.get('len_a', 0.17)), (1, P.get('len_b', 0.13))):
+            fd = (Matrix.Rotation(math.radians(sgn_f * P.get('spread', 22)), 3, 'Y') @ d).normalized()
+            base = end + d * 0.075 + Vector((sgn_f * 0.032, -0.012, 0))
+            cyl(P.get('finger_r', 0.028), flen, tuple(base + fd * flen / 2), tuple(fd.to_track_quat('Z', 'Y').to_euler()), arm_mat, verts=6)
+    else:
+        sphere(0.085, tuple(sh + d * L), arm_mat, seg=8, rings=6)
     sphere(0.072, tuple(sh), M_BODY, seg=8, rings=6)
 
 # group the whole crude monke under one root so it can be scaled/placed to match the real model
@@ -206,13 +233,15 @@ if cfg.get('env') == 'gt_crude':
 # ---------------------------------------------------------------- default-ish lighting: one hard sun + flat ambient
 sun = bpy.data.lights.new('sun', 'SUN')
 sun.energy = cfg.get('sun', 3.2)
-sun.angle = math.radians(1.0)
+sun.angle = math.radians(cfg.get('sun_angle', 1.0))
+sun.color = gt.srgb(cfg.get('sun_col', '#FFFFFF'))[:3]
 so = bpy.data.objects.new('sun', sun)
 scn.collection.objects.link(so)
 so.rotation_euler = Euler([math.radians(v) for v in cfg.get('sun_rot', (50, 0, -30))], 'XYZ')
 # fill so the black body isn't a void
 fill = bpy.data.lights.new('fill', 'AREA')
 fill.energy = cfg.get('fill', 120)
+fill.color = gt.srgb(cfg.get('fill_col', '#FFFFFF'))[:3]
 fill.size = 3
 fo = bpy.data.objects.new('fill', fill)
 scn.collection.objects.link(fo)
@@ -228,7 +257,10 @@ co.location = Vector(C.get('loc', (0.32, -1.40, 0.13)))
 tgt = Vector(C.get('target', (0.32, 0, 0.49)))
 co.rotation_euler = (tgt - co.location).to_track_quat('-Z', 'Y').to_euler()
 cam.lens = C.get('lens', 34)
-cam.dof.use_dof = False          # everything flat and sharp: cheap look
+cam.dof.use_dof = bool(C.get('fstop'))   # default: everything flat and sharp (cheap look)
+if cam.dof.use_dof:
+    cam.dof.aperture_fstop = C['fstop']
+    cam.dof.focus_distance = (tgt - co.location).length
 cam.shift_x = C.get('shift_x', 0.0)
 cam.shift_y = C.get('shift_y', 0.0)
 scn.camera = co
@@ -240,8 +272,8 @@ scn.cycles.samples = R.get('samples', 32)
 scn.cycles.use_denoising = True
 scn.render.resolution_x = R.get('w', 1280)
 scn.render.resolution_y = R.get('h', 720)
-scn.view_settings.view_transform = R.get('view', 'Standard')
-scn.view_settings.look = 'None'
+scn.view_settings.view_transform = cfg.get('view', 'Standard')
+scn.view_settings.look = cfg.get('look', 'None')
 scn.render.image_settings.file_format = 'PNG'
 scn.render.image_settings.color_depth = '16'
 scn.render.filepath = cfg['out']

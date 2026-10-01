@@ -104,6 +104,22 @@ PRESETS = {
 }
 
 
+# v5 (main): teal ChatGPT build doing a primitive peace sign, a touch more real (AgX, soft sun, vinyl breakup, mild DOF);
+# Claude relit as a backlit portrait (warm key front-left, warm low fill, strong rim on the sun side)
+import copy as _copy
+PRESETS["treehouse2"] = _copy.deepcopy(PRESETS["treehouse"])
+PRESETS["treehouse2"]["L"].update(
+    body="#0E8F6E", face_col="#A7ADB2", missing_arm=False, view="AgX", look="AgX - Punchy",
+    arm_deg_side={"-1": 186, "1": 14}, arm_len_side={"-1": 0.19}, peace_side=["-1"],
+    mat_detail={"scale": 40, "rough_var": 0.15, "bump": 0.06}, sun=3.4, sun_angle=4.0, sun_col="#FFF6EA",
+    fill=90, fill_col="#E8F0FF", cam=cam([0, -1.05, 0.70], [0, 0, 0.70], 30, "L", fstop=5.6))
+PRESETS["treehouse2"]["R"].update(
+    sun={"energy": 10.0, "color": "#FFA84F", "angle": 3},
+    lights={"key": 170, "key_pos": [-1.1, -2.0, 1.2], "key_size": 2.5, "key_col": "#FFE2C6",
+            "fill": 35, "fill_pos": [0.3, -1.6, -0.4], "fill_size": 2.0, "fill_col": "#FFC7A0",
+            "rim": 450, "rim_col": "#FFB868", "rim2": 1000, "rim2_col": "#FFB050", "sun": 0})
+
+
 def job(name, side):
     p = PRESETS[name][side]
     if side == "L":

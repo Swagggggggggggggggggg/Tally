@@ -150,3 +150,36 @@ Spencer's note on v3: the other hit thumbnails put a real environment, or at lea
 - An in-scene 3D haze volume was tested and rejected. It turned the whole forest muddy beige.
 
 **Face:** Claude now uses the default in-game Gorilla Tag face (Spencer's call). The untouched face reads as "the real thing", which strengthens the real-vs-fake contrast. The smiling texture edit is kept in `pipeline/face_happy_64px.png`.
+
+## v5: relight, teal ChatGPT, and matching peace signs (now the main thumbnail)
+
+Spencer's notes on v4 were that the Claude monke's shading looked slightly off, the left side should be a bit more realistic without the missing-texture arm, and the ChatGPT monke could use a contrasting colour.
+
+**What was wrong with Claude's lighting:**
+- The key light and the sun both came from the right, so the monke's left side got only a cool blue fill. That made the ear blue-grey and the front flat, which looked pasted onto a backlit scene.
+- The post light wrap smeared the peace hand.
+
+**The fix:**
+- A warm soft key from front-left, a warm low fill, and a strong rim on the sun side.
+- The light wrap is tighter, and the amber grade is 60% weaker on the monke, so the fur keeps its colour.
+
+**ChatGPT side changes:**
+- The monke is now ChatGPT teal `#0E8F6E`. Pastel teal was too weak against the pale sky, so three deeper teals were tested (`concepts/teal_variants.jpg`).
+- Filmic AgX tone mapping, a soft sun, a subtle vinyl surface breakup, and f/5.6.
+- Without the checker texture, the raised arm read as a pole. Two alternatives didn't work:
+  - A ball hand looked phallic next to the face.
+  - Arms down or a T-pose lost the joke.
+- The final version is a **peace sign built from primitives**: a box palm with two mismatched stick fingers. It mirrors Claude's real peace sign and reads at 160px.
+
+## Brainstorm: next ideas (`brainstorm/ideas_sheet.jpg`)
+
+| # | Idea | Evidence | Take |
+|---|---|---|---|
+| 1 | Noodle-arm glitch: ChatGPT's arms stretch into tangled spaghetti | Long arms are a Gorilla Tag meme (jmancurly's "Mechanical Long Arms", 439K) | Strongest humor hook. Cheap in Blender, and the Claude panel stays. |
+| 4 | Lava tag: lava-skin Claude reaches through the divider and the crude monke falls apart | Action plus the divider as a device; the rig has a built-in lava shader | Highest energy, but it claims the win outright |
+| 5 | FPS stat: "3 FPS" vs "240 FPS" | Wxter's "1341 FPS vs 67 FPS" (138x, the biggest outlier found); FPS matters in VR | Cheapest A/B test, using the same art plus a number |
+| 2 | Fell through the map | A universally known game bug | Funny, but the ChatGPT face gets small |
+| 3 | Empty vs full lobby ("PLAYERS: 0" vs "10/10") | AI PILLED's "0 vs 10K" (58K) | Social proof, but busy at feed size |
+| 6 | Rating "1/10" vs "10/10" | Generic | Weaker than the FPS idea |
+
+**Recommended Test & Compare set:** v5, v5 with the FPS stat, and the noodle-arm build.

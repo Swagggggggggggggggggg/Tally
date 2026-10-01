@@ -122,7 +122,7 @@ def apply(img, G):
         sh, hi = to_lin(hexcol(T.get("shadow", "#5E8A9A"))), to_lin(hexcol(T.get("high", "#FFC98C")))
         sh, hi = sh / (sh @ np.float32([0.2126, 0.7152, 0.0722])), hi / (hi @ np.float32([0.2126, 0.7152, 0.0722]))
         tint = sh * (1 - t) + hi * t
-        amt = T.get("amount", 0.25)
+        amt = T.get("amount", 0.25) * (1 - a + a * T.get("subject", 1.0))[..., None]  # gentler on the subject's own colours
         rgb = rgb * (1 - amt + amt * tint)
     rgb = shoulder(rgb, T.get("knee", 0.82))
     out = np.clip(to_srgb(rgb) * 255 + 0.5, 0, 255).astype(np.uint8)
