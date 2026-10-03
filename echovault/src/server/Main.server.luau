@@ -1,4 +1,4 @@
--- Script → ServerScriptService (Rojo: src/server/Main.server.lua)
+-- Script → ServerScriptService (Rojo: src/server/Main.server.luau)
 -- ECHO VAULT: a time-loop puzzle. Doors only open while something stands on their plate.
 -- Record a loop standing on a plate -> your "echo" replays it forever -> next loop you walk through the door.
 -- Level N needs N-1 echoes. Every player gets a private arena so nobody interferes.

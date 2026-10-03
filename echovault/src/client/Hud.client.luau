@@ -1,4 +1,4 @@
--- LocalScript → StarterPlayer > StarterPlayerScripts (Rojo: src/client/Hud.client.lua)
+-- LocalScript → StarterPlayer > StarterPlayerScripts (Rojo: src/client/Hud.client.luau)
 -- UI + keybinds only. All game logic is on the server.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
