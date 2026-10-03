@@ -20,5 +20,7 @@ Roblox time-loop puzzle. Doors open only while a player or an "echo" (replay of 
 - Ghosts freeze on their last recorded sample (that's how they hold a plate forever).
 - DataStore needs "Enable Studio Access to API Services" in Game Settings > Security.
 
+- Lasers (segments >= Config.LaserFromSegment) cycle on/off as a pure function of loop time (Config.LaserState), so echoes replay safely. Touching a live beam discards your current loop.
+
 ## Ideas queue
-Laser hazards echoes must dodge; co-op shared arena.
+Co-op shared arena; moving lasers; echo-only plates.

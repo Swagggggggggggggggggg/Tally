@@ -39,7 +39,7 @@ local function loadLevel(s, n)
 	s.folder = Instance.new("Folder")
 	s.folder.Name = s.plr.Name .. "_Arena"
 	s.folder.Parent = workspace
-	s.level, s.ghosts, s.plates, s.doors = n, {}, {}, {}
+	s.level, s.ghosts, s.plates, s.doors, s.lasers = n, {}, {}, {}, {}
 
 	local o, z0, gap = s.origin, Config.FirstPlateZ, Config.LevelSpacing
 	local zmax = z0 + gap * n + 14
@@ -55,6 +55,14 @@ local function loadLevel(s, n)
 			o + Vector3.new(0, 5, pz + gap / 2), color, Enum.Material.Neon)
 		door.Transparency = 0.25
 		s.plates[i], s.doors[i] = plate, door
+
+		if i >= Config.LaserFromSegment then
+			-- beam crosses the corridor between the previous door and this plate
+			local beam = part(s.folder, Vector3.new(40, 0.8, 0.8), o + Vector3.new(0, 3, pz - 5),
+				Color3.fromRGB(255, 40, 40), Enum.Material.Neon)
+			beam.CanCollide = false
+			table.insert(s.lasers, { part = beam, z = o.Z + pz - 5, phase = i * 0.9, state = "" })
+		end
 	end
 	s.goal = part(s.folder, Vector3.new(12, 0.4, 12), o + Vector3.new(0, 0.2, z0 + gap * n),
 		Color3.fromRGB(255, 215, 0), Enum.Material.Neon)
@@ -140,6 +148,27 @@ RunService.Heartbeat:Connect(function(dt)
 			s.doors[i].CanCollide = not pressed
 			s.doors[i].Transparency = pressed and 0.9 or 0.25
 			plate.Transparency = pressed and 0.5 or 0
+		end
+
+		local zapped = false
+		for _, l in s.lasers do
+			local state = Config.LaserState(s.t, l.phase)
+			if state ~= l.state then -- only touch the part when the state changes
+				l.state = state
+				l.part.Color = state == "warn" and Color3.fromRGB(255, 170, 40) or Color3.fromRGB(255, 40, 40)
+				l.part.Transparency = state == "on" and 0 or (state == "warn" and 0.5 or 0.9)
+			end
+			-- timing only: the beam is too tall to jump, so you wait for the gap
+			if state == "on" and math.abs(hrp.Position.Z - l.z) < 1.2 then zapped = true end
+		end
+
+		if zapped then
+			s.plr:SetAttribute("Message", "Zapped! Loop discarded")
+			task.delay(1, function()
+				if s.plr:GetAttribute("Message") == "Zapped! Loop discarded" then s.plr:SetAttribute("Message", "") end
+			end)
+			startLoop(s)
+			continue
 		end
 
 		if near(hrp.Position, s.goal.Position, GOAL_REACH) then
