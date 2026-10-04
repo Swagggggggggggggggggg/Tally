@@ -200,6 +200,16 @@ def main(cfgp):
     if g:
         final = ImageEnhance.Color(final).enhance(g.get("sat", 1.0))
         final = ImageEnhance.Contrast(final).enhance(g.get("con", 1.0))
+    V = cfg.get("vignette")
+    if V:
+        import numpy as np
+        a = np.asarray(final, dtype=np.float32)
+        yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+        # per-panel vignette: each half darkens toward its outer corners, not toward the shared divider
+        cx = np.where(xx < W / 2, W * 0.25, W * 0.75)
+        d = np.sqrt(((xx - cx) / (W * 0.5)) ** 2 + ((yy - H * 0.55) / (H * 0.75)) ** 2)
+        k = 1 - V.get("strength", 0.3) * np.clip((d - V.get("start", 0.55)) / (1 - V.get("start", 0.55)), 0, 1) ** 1.6
+        final = Image.fromarray(np.clip(a * k[..., None], 0, 255).astype(np.uint8))
     out = cfg["out"]
     final.save(out + "_full.png")
     small = final.resize((1280, 720), Image.LANCZOS)

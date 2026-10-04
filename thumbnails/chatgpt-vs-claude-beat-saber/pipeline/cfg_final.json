@@ -1,6 +1,6 @@
 {
- "left": "final/v2_L.png",
- "right": "final/v2_R.png",
+ "left": "final/final_L.png",
+ "right": "final/final_R.png",
  "out": "final/thumbnail",
  "divider": {
   "top": 0.5,
@@ -35,5 +35,9 @@
  "grade_final": {
   "sat": 1.05,
   "con": 1.05
+ },
+ "vignette": {
+  "strength": 0.28,
+  "start": 0.55
  }
 }

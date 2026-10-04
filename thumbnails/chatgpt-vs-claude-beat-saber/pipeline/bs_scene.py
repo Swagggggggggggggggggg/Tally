@@ -67,7 +67,7 @@ def mat_glow_fade(name, hx, strength, axis='X'):
     sep = nt.nodes.new('ShaderNodeSeparateXYZ')
     ramp = nt.nodes.new('ShaderNodeValToRGB')
     ramp.color_ramp.elements[0].position = 0.0
-    ramp.color_ramp.elements[0].color = (0.35, 0.35, 0.35, 1)
+    ramp.color_ramp.elements[0].color = (cfg.get('trail_op', 0.35),) * 3 + (1,)
     ramp.color_ramp.elements[1].position = 1.0
     ramp.color_ramp.elements[1].color = (0, 0, 0, 1)
     nt.links.new(uv.outputs['UV'], sep.inputs[0])
@@ -82,6 +82,13 @@ def mat_glow_fade(name, hx, strength, axis='X'):
 
 C = cfg.get('colors', {})
 RED, BLUE = C.get('red', '#FF1F2D'), C.get('blue', '#1F7BFF')
+def matte(m):
+    b = m.node_tree.nodes['Principled BSDF']
+    b.inputs['Roughness'].default_value = 1.0
+    b.inputs['Specular IOR Level'].default_value = 0.0
+    return m
+
+
 if REAL:
     M = dict(
         track=mat_flat('track', '#06070B', rough=0.12, metal=0.6, spec=0.8),
@@ -94,13 +101,14 @@ if REAL:
         frame_red=mat_emit('frame_r', '#FF3341', 2.5, base='#5A0006'),
         frame_blue=mat_emit('frame_b', '#3C8CFF', 2.5, base='#001A55'),
         arrow=mat_emit('arrow', '#FFFFFF', cfg.get('arrow', 9)),
-        cut_blue=mat_emit('cut_b', '#4FA0FF', cfg.get('cut', 14)),
+        cut_blue=matte(mat_emit('cut_b', cfg.get('cut_col', '#3D8EFF'), cfg.get('cut', 22))),
+
         saber_red=mat_emit('saber_r', '#FF2B3A', cfg.get('saber', 12)),
         saber_blue=mat_emit('saber_b', '#2F86FF', cfg.get('saber', 12)),
         core=mat_emit('core', '#E8F3FF', cfg.get('core', 22)),
         hilt=mat_flat('hilt', '#1B1D22', rough=0.35, metal=0.9),
         spark=mat_emit('spark', '#CFE8FF', cfg.get('spark', 25)),
-        trail=mat_glow_fade('trail', '#2F86FF', cfg.get('trail', 3)),
+        trail=mat_glow_fade('trail', cfg.get('trail_col', '#0A3CFF'), cfg.get('trail', 3)),
         laser_blue=mat_emit('laser_b', '#2E8BFF', cfg.get('laser', 25)),
         laser_pink=mat_emit('laser_p', '#FF2EA6', cfg.get('laser', 25)),
     )
@@ -187,13 +195,14 @@ for sx in (-1, 1):
 NOTE = L.get('note', 0.5)
 
 
-def note(loc, colour, rot_deg=(0, 0, 0), arrow=True, name='note'):
+def note(loc, colour, rot_deg=(0, 0, 0), arrow=True, name='note', scale=1.0, arrow_roll=0.0):
     """Beat Saber note: bevelled cube, lighter frame, white chevron arrow on the camera-facing side."""
     rot = Euler([math.radians(v) for v in rot_deg], 'XYZ')
     root = bpy.data.objects.new(name, None)
     link(root)
     root.location = loc
     root.rotation_euler = rot
+    root.scale = (scale,) * 3
     parts = []
     c = box((NOTE, NOTE, NOTE), (0, 0, 0), mat=M['cube_' + colour], bevel=NOTE * 0.12 if REAL else 0.0, name=name + '_cube')
     parts.append(c)
@@ -209,7 +218,9 @@ def note(loc, colour, rot_deg=(0, 0, 0), arrow=True, name='note'):
         me = bpy.data.meshes.new(name + '_arrow')
         y = -NOTE / 2 - 0.006
         vz = NOTE * 0.18
-        verts = [(-w / 2, y, vz), (w / 2, y, vz), (0, y, vz - h)]
+        ca, sa = math.cos(math.radians(arrow_roll)), math.sin(math.radians(arrow_roll))
+        # roll the chevron in the face plane about the face centre (diagonal notes)
+        verts = [(x * ca - z * sa, y, x * sa + z * ca) for x, _, z in ((-w / 2, y, vz), (w / 2, y, vz), (0, y, vz - h))]
         me.from_pydata(verts, [], [(0, 1, 2)])
         ao = bpy.data.objects.new(name + '_arrow', me)
         link(ao)
@@ -228,21 +239,72 @@ for (x, y, z, col) in L.get('far_notes', [(-0.4, 9.0, 0.9, 'red'), (0.4, 9.0, 0.
 H = cfg.get('hero', {})
 
 
+def mat_halo(name, hx, strength, power=2.6):
+    """Volumetric glow: emission in a cylinder volume, falling off radially from the blade axis."""
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    for n in list(nt.nodes):
+        nt.nodes.remove(n)
+    out = nt.nodes.new('ShaderNodeOutputMaterial')
+    tc = nt.nodes.new('ShaderNodeTexCoord')
+    sep = nt.nodes.new('ShaderNodeSeparateXYZ')
+    comb = nt.nodes.new('ShaderNodeCombineXYZ')
+    ln = nt.nodes.new('ShaderNodeVectorMath'); ln.operation = 'LENGTH'
+    mr = nt.nodes.new('ShaderNodeMapRange')            # object coords: radius 1 at the cylinder wall
+    mr.inputs['From Min'].default_value, mr.inputs['From Max'].default_value = 0.0, 1.0
+    mr.inputs['To Min'].default_value, mr.inputs['To Max'].default_value = 1.0, 0.0
+    pw = nt.nodes.new('ShaderNodeMath'); pw.operation = 'POWER'; pw.inputs[1].default_value = power
+    mul = nt.nodes.new('ShaderNodeMath'); mul.operation = 'MULTIPLY'; mul.inputs[1].default_value = strength
+    em = nt.nodes.new('ShaderNodeEmission'); em.inputs['Color'].default_value = srgb(hx)
+    nt.links.new(tc.outputs['Object'], sep.inputs[0])
+    nt.links.new(sep.outputs['X'], comb.inputs['X']); nt.links.new(sep.outputs['Y'], comb.inputs['Y'])
+    nt.links.new(comb.outputs[0], ln.inputs[0])
+    nt.links.new(ln.outputs['Value'], mr.inputs['Value'])
+    nt.links.new(mr.outputs['Result'], pw.inputs[0])
+    nt.links.new(pw.outputs[0], mul.inputs[0])
+    nt.links.new(mul.outputs[0], em.inputs['Strength'])
+    nt.links.new(em.outputs[0], out.inputs['Volume'])
+    return m
+
+
 def saber(hilt_pos, tip_dir, colour, length=1.05):
+    # blade materials are matte emitters: the light-spill point lights sit right on the blade and would burn specular beads into it
     hp, d = Vector(hilt_pos), Vector(tip_dir).normalized()
-    parts = [beam(hp - d * 0.22, hp, 0.028, M['hilt'], 16, 'hilt')]
-    if REAL:
-        parts.append(beam(hp, hp + d * length, 0.010, M['core'], 16, 'blade_core'))
-        parts.append(beam(hp, hp + d * length, 0.022, M['saber_' + colour], 16, 'blade_glow'))
-    else:
-        parts.append(beam(hp, hp + d * length, 0.022, M['saber_' + colour], 10, 'blade'))
+    if not REAL:
+        return [beam(hp - d * 0.22, hp, 0.028, M['hilt'], 16, 'hilt'),
+                beam(hp, hp + d * length, 0.022, M['saber_' + colour], 10, 'blade')]
+    hx = S_col = ('#0F52FF' if colour == 'blue' else '#FF1022')
+    S = cfg.get('saber_fx', {})
+    parts = []
+    # machined hilt: dark metal grip with raised rings, pommel, and a glowing emitter collar
+    metal = mat_flat('hilt_metal', '#2A2D33', rough=0.28, metal=1.0)
+    grip = mat_flat('hilt_grip', '#0E0F12', rough=0.7)
+    parts.append(beam(hp - d * 0.24, hp - d * 0.02, 0.027, grip, 24, 'grip'))
+    for t in (0.05, 0.09, 0.13, 0.17):
+        parts.append(beam(hp - d * (t + 0.008), hp - d * (t - 0.008), 0.031, metal, 24, 'ring'))
+    parts.append(beam(hp - d * 0.27, hp - d * 0.24, 0.033, metal, 24, 'pommel'))
+    parts.append(beam(hp - d * 0.02, hp + d * 0.02, 0.034, metal, 24, 'collar'))
+    parts.append(beam(hp + d * 0.018, hp + d * 0.026, 0.024, mat_emit('emitter', hx, 40), 24, 'emitter'))
+    # blade: white-hot core, saturated inner sheath, rounded tip
+    parts.append(beam(hp + d * 0.02, hp + d * length, S.get('core_r', 0.0075), matte(mat_emit('core_hot', '#F4FAFF', S.get('core', 45))), 16, 'core'))
+    parts.append(beam(hp + d * 0.02, hp + d * length, S.get('sheath_r', 0.016), matte(mat_emit('sheath', hx, S.get('sheath', 14))), 16, 'sheath'))
+    bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, radius=0.016)
+    me = bpy.data.meshes.new('tip'); bm.to_mesh(me); bm.free()
+    tp = link(bpy.data.objects.new('tip', me)); tp.location = hp + d * length
+    tp.data.materials.append(matte(mat_emit('tip', hx, S.get('sheath', 14)))); parts.append(tp)
+    # volumetric halo around the blade (soft falloff into the air, like the real game)
+    R = S.get('halo_r', 0.075)
+    halo = beam(hp + d * 0.0, hp + d * (length + R * 0.6), 1.0, mat_halo('halo_' + colour, hx, S.get('halo', 9.0)), 32, 'halo')
+    halo.scale = (R, R, 1.0)
+    parts.append(halo)
     return parts
 
 
 # LEFT (ChatGPT side): red note, red saber clipping straight through it (no cut, no effects)
 LN = H.get('left_note', [-0.62, 0.45, 1.18])
 LR = H.get('left_note_rot', [8, 10, -8])
-note(LN, 'red', LR, name='heroL')
+note(tuple(Vector(LN) + Vector(H.get('left_note_shift', (0, 0, 0)))), 'red', LR, name='heroL', arrow_roll=H.get('left_arrow', 0.0))
 saber(H.get('left_hilt', [-0.30, -0.55, 0.78]), H.get('left_dir', [-0.42, 1.0, 0.55]), 'red', H.get('left_len', 1.05))
 
 # RIGHT (Claude side): blue note sliced in two along the saber's swing plane
@@ -251,7 +313,7 @@ RR = H.get('right_note_rot', [8, -10, 8])
 cut_n = Vector(H.get('cut_normal', [0.55, -0.15, 0.82])).normalized()   # normal of the slice plane (world)
 gap = H.get('cut_gap', 0.11)
 if REAL:
-    root, parts = note(tuple(RN), 'blue', RR, name='heroR')
+    root, parts = note(tuple(RN + Vector(H.get('right_note_shift', (0, 0, 0)))), 'blue', RR, name='heroR', scale=H.get('right_scale', 1.0), arrow_roll=H.get('right_arrow', 0.0))
     bpy.context.view_layer.update()
     # bake each part to world space, then split every part by the slice plane into two halves
     halves = {+1: [], -1: []}
@@ -270,7 +332,13 @@ if REAL:
             cut_edges = [e for e in res['geom_cut'] if isinstance(e, bmesh.types.BMEdge)]
             nf_before = len(bm.faces)
             if cut_edges:
+                if p.name.endswith('_cube') and H.get('cut_rim', 1):
+                    rim_segs = [(e.verts[0].co.copy(), e.verts[1].co.copy()) for e in cut_edges]
+                else:
+                    rim_segs = []
                 bmesh.ops.holes_fill(bm, edges=cut_edges, sides=0)
+            else:
+                rim_segs = []
             if not bm.verts:
                 bm.free()
                 continue
@@ -281,16 +349,22 @@ if REAL:
                 hm.materials.append(mt)
             hm.materials.append(M['cut_blue'])
             # faces created by the fill are the cut faces -> glowing material
-            for poly in hm.polygons[nf_before:]:
-                poly.material_index = len(hm.materials) - 1
+            for poly in hm.polygons:
+                if abs(poly.normal.dot(cut_n)) > 0.98 and abs((poly.center - RN).dot(cut_n)) < 0.004:
+                    poly.material_index = len(hm.materials) - 1
             ho = bpy.data.objects.new(hm.name, hm)
             link(ho)
             halves[side].append(ho)
+            rim_mat = M.get('cut_rim') or mat_emit('cut_rim', '#3C86FF', H.get('cut_rim_str', 9))
+            M['cut_rim'] = rim_mat
+            for a_, b_ in rim_segs:
+                rb = beam(a_, b_, H.get('cut_rim_r', 0.0045), rim_mat, 8, 'cut_rim')
+                halves[side].append(rb)
         bpy.data.objects.remove(p)
     # push the halves apart along the cut normal, with a little spin
     for side, objs in halves.items():
         for o in objs:
-            o.location = cut_n * gap * side * 0.5
+            o.location = o.location + cut_n * gap * side * 0.5   # rim beams already sit at their own location
             o.rotation_mode = 'XYZ'
         if objs:
             piv = bpy.data.objects.new('half_pivot', None)
@@ -306,40 +380,76 @@ if REAL:
     # sparks: a few short streaks bursting from the two ends of the cut line
     bd = Vector(H.get('right_dir', [0.3, 1.0, 0.05])).normalized()
     for i in range(H.get('sparks', 14)):
-        end_ = rnd.choice((-1, 1))
+        end_ = rnd.choice(H.get('spark_ends', (-1, 1)))
         base = RN + bd * end_ * NOTE * rnd.uniform(0.55, 0.75)
         d = (bd * end_ * rnd.uniform(0.3, 0.8) + cut_n * rnd.uniform(-1.0, 1.0)).normalized()
         off = base + d * rnd.uniform(0.02, 0.06)
         beam(off, off + d * rnd.uniform(0.04, 0.12), rnd.uniform(0.0025, 0.0045), M['spark'], 6, 'spark')
+    # shards: small fragments thrown off the cut
+    for i in range(H.get('shards', 9)):
+        end_ = rnd.choice(H.get('spark_ends', (-1, 1)))   # debris only where the sparks burst
+        p = RN + bd * end_ * NOTE * rnd.uniform(0.5, 0.9) + cut_n * rnd.uniform(-0.06, 0.06)
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=rnd.uniform(0.008, 0.018), location=p)
+        sh = bpy.context.object
+        sh.scale = (1, rnd.uniform(0.3, 0.6), rnd.uniform(0.5, 1.2))
+        sh.rotation_euler = (rnd.uniform(0, 6.28), rnd.uniform(0, 6.28), rnd.uniform(0, 6.28))
+        sh.data.materials.append(M['spark'])   # glowing debris, not dull specks
     # blue saber already past the cut, with a fading trail behind it
     hp = Vector(H.get('right_hilt', [0.30, -0.55, 0.78]))
     d1 = Vector(H.get('right_dir', [0.30, 1.0, 0.05])).normalized()
     saber(hp, d1, 'blue', H.get('right_len', 1.05))
-    ax = Vector(H.get('trail_axis', [0.0, 0.25, 1.0])).normalized()   # swing rotation axis through the hilt
-    steps, sweep = 14, math.radians(H.get('trail_deg', 35))
-    vs, fs = [], []
-    for k in range(steps + 1):
-        R = Matrix.Rotation(-sweep * k / steps, 3, ax)
-        dk = R @ d1
-        vs += [tuple(hp + dk * H.get('right_len', 1.05) * H.get('trail_in', 0.62)), tuple(hp + dk * H.get('right_len', 1.05))]
-    for k in range(steps):
-        a = 2 * k
-        fs.append((a, a + 1, a + 3, a + 2))
-    me = bpy.data.meshes.new('trail')
-    me.from_pydata(vs, [], fs)
-    uvl = me.uv_layers.new()
-    for poly in me.polygons:
-        for li in poly.loop_indices:
-            vi = me.loops[li].vertex_index
-            uvl.data[li].uv = ((vi // 2) / steps, vi % 2)
-    tr = bpy.data.objects.new('trail', me)
-    link(tr)
-    tr.data.materials.append(M['trail'])
+    # light spill: the blade actually lights the halves, the track and the arches
+    for k in range(H.get('blade_lights', 5)):
+        t = (k + 0.5) / H.get('blade_lights', 5)
+        pl = bpy.data.lights.new('blade_light', 'POINT')
+        pl.energy = H.get('saber_light', 12)
+        pl.color = srgb('#3A8BFF')[:3]
+        pl.shadow_soft_size = 0.02
+        lo = link(bpy.data.objects.new('blade_light', pl))
+        lo.location = hp + d1 * H.get('right_len', 1.05) * t
+    # impact flash: a hot streak along the cut line, bloom turns it into a flare
+    if H.get('flash', 1):
+        bm = bmesh.new(); bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, radius=1.0)
+        me_f = bpy.data.meshes.new('flash'); bm.to_mesh(me_f); bm.free()
+        fl = link(bpy.data.objects.new('flash', me_f))
+        fl.location = RN + (Vector(cfg.get('cam', {}).get('loc', (0, -1.7, 1.55))) - RN).normalized() * NOTE * 0.3
+        fl.rotation_mode = 'QUATERNION'
+        fl.rotation_quaternion = d1.to_track_quat('Z', 'Y')
+        fl.scale = (0.012, 0.012, NOTE * H.get('flash_len', 0.75))
+        fl.data.materials.append(mat_emit('flash', '#DDEEFF', H.get('flash_str', 60)))
+    if cfg.get('trail', 3) > 0:          # no ribbon at all when the trail is off (a zero-strength ribbon still darkens)
+        ax = Vector(H.get('trail_axis', [0.0, 0.25, 1.0])).normalized()   # swing rotation axis through the hilt
+        steps, sweep = 14, math.radians(H.get('trail_deg', 35))
+        vs, fs = [], []
+        for k in range(steps + 1):
+            R = Matrix.Rotation(-sweep * k / steps, 3, ax)
+            dk = R @ d1
+            vs += [tuple(hp + dk * H.get('right_len', 1.05) * H.get('trail_in', 0.62)), tuple(hp + dk * H.get('right_len', 1.05))]
+        for k in range(steps):
+            a = 2 * k
+            fs.append((a, a + 1, a + 3, a + 2))
+        me = bpy.data.meshes.new('trail')
+        me.from_pydata(vs, [], fs)
+        uvl = me.uv_layers.new()
+        for poly in me.polygons:
+            for li in poly.loop_indices:
+                vi = me.loops[li].vertex_index
+                uvl.data[li].uv = ((vi // 2) / steps, vi % 2)
+        tr = bpy.data.objects.new('trail', me)
+        link(tr)
+        tr.data.materials.append(M['trail'])
 else:
     # ChatGPT side builds the same right-hand hit but without slicing (only the left half of this render is used)
-    note(tuple(RN), 'blue', RR, name='heroR')
+    note(tuple(RN + Vector(H.get('right_note_shift', (0, 0, 0)))), 'blue', RR, name='heroR', scale=H.get('right_scale', 1.0), arrow_roll=H.get('right_arrow', 0.0))
     saber(H.get('right_hilt', [0.30, -0.55, 0.78]), H.get('right_dir', [0.30, 1.0, 0.05]), 'blue', H.get('right_len', 1.05))
 
+# laser fan (real only): beams radiating from behind the far end of the tunnel
+if REAL:
+    for k, (ang, col) in enumerate(L.get('fan', [])):
+        p0 = Vector(L.get('fan_origin', (0, 70, 1.0)))
+        a = math.radians(ang)
+        d = Vector((math.cos(a), -0.15, math.sin(a))).normalized()
+        beam(p0, p0 + d * 90, L.get('fan_r', 0.12), M['laser_' + col], 8, 'fan')
 # lasers (real only): long beams fanning from the far towers across the sky
 if REAL:
     for i, (sx, y, ang, col) in enumerate(L.get('lasers', [(1, 40, 28, 'blue'), (1, 44, 40, 'pink'), (1, 48, 52, 'blue'),
